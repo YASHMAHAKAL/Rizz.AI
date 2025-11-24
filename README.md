@@ -7,72 +7,100 @@ Rizz.AI is a next-generation dating assistant powered by Google's Gemini AI. It 
 ## ✨ Features
 
 - **🤖 AI-Powered Rizz**: Leverages Google's Gemini API to generate witty, charming, and context-aware responses.
+- **🔒 Secure Architecture**: Uses a Backend-for-Frontend (BFF) pattern to keep API keys safe and secure.
 - **🎨 Modern UI**: A stunning interface featuring glassmorphism, fluid animations, and a "Romantic Minimalist" color palette.
 - **⚡ Interactive Elements**: Experience a "living" UI with typewriter text effects, 3D card tilts, magnetic buttons, and confetti blasts.
-- **📱 Mobile-First Design**: Fully responsive layout optimized for mobile devices, ensuring you have backup wherever you go.
-- **🌊 Fluid Transitions**: Seamless page transitions and micro-interactions powered by Framer Motion.
+- **� Cloud Ready**: Fully containerized with Docker and ready for Kubernetes deployment.
 
 ## 🛠️ Tech Stack
 
-- **Frontend Framework**: [React 19](https://react.dev/)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Animations**: [Framer Motion](https://www.framer.com/motion/) & [Canvas Confetti](https://www.npmjs.com/package/canvas-confetti)
-- **AI Integration**: [Google Gemini API](https://ai.google.dev/)
-- **Build Tool**: [Vite](https://vitejs.dev/)
-- **Icons**: [Lucide React](https://lucide.dev/)
+- **Frontend**: React 19, TypeScript, Tailwind CSS, Framer Motion
+- **Backend**: Node.js, Express
+- **AI**: Google Gemini API
+- **Infrastructure**: Docker, Kubernetes, Nginx
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
-- npm or yarn
+- Docker
+- Kubernetes Cluster (Minikube, Kind, or Cloud Provider)
 - A Google Gemini API Key
 
-### Installation
+### 📦 Installation & Deployment
 
 1.  **Clone the repository**
 
     ```bash
-    git clone https://github.com/yourusername/rizz.ai.git
+    git clone https://github.com/YASHMAHAKAL/rizz.ai.git
     cd rizz.ai
     ```
 
-2.  **Install dependencies**
+2.  **Create the Kubernetes Secret**
+
+    You must create a secret to store your API key securely in the cluster.
 
     ```bash
-    npm install
+    kubectl create secret generic rizz-secret --from-literal=api-key=YOUR_ACTUAL_API_KEY_HERE
     ```
 
-3.  **Set up Environment Variables**
+3.  **Build the Docker Images**
 
-    Create a `.env` file in the root directory and add your Gemini API key:
-
-    ```env
-    VITE_GEMINI_API_KEY=your_api_key_here
+    If you are using Minikube, point your shell to Minikube's Docker daemon first:
+    ```bash
+    eval $(minikube docker-env)
     ```
 
-4.  **Run the Development Server**
+    Build the Backend:
+    ```bash
+    cd backend
+    docker build -t rizz-backend:latest .
+    cd ..
+    ```
+
+    Build the Frontend:
+    ```bash
+    cd rizz-app
+    docker build -t rizz-ai:latest .
+    cd ..
+    ```
+
+4.  **Deploy to Kubernetes**
 
     ```bash
-    npm run dev
+    # Deploy Backend
+    kubectl apply -f backend-deployment.yaml
+
+    # Deploy Frontend
+    kubectl apply -f rizz-pod.yaml
     ```
 
-    Open your browser and navigate to `http://localhost:5173` (or the port shown in your terminal).
+5.  **Access the Application**
+
+    If using Minikube:
+    ```bash
+    minikube service rizz-service
+    ```
 
 ## 📂 Project Structure
 
 ```
 rizz.ai/
-├── src/
-│   ├── components/   # Reusable UI components (Card, Navbar, Typewriter, etc.)
-│   ├── context/      # React Context for state management (RizzContext)
-│   ├── pages/        # Application pages (Home, Chat, Profile)
-│   ├── services/     # API services (Gemini AI integration)
-│   ├── App.tsx       # Main application component
-│   └── main.tsx      # Entry point
-├── public/           # Static assets
-└── ...config files   # Tailwind, Vite, TypeScript configs
+├── backend/                # Node.js Backend (Handles API Key & Gemini Calls)
+│   ├── server.js
+│   └── Dockerfile
+├── rizz-app/               # React Frontend
+│   ├── src/
+│   ├── public/
+│   └── Dockerfile
+├── rizz-pod.yaml           # Frontend Kubernetes Manifest
+├── backend-deployment.yaml # Backend Kubernetes Manifest
+└── README.md
 ```
 
+## 🔒 Security
+
+This project uses a secure **Backend-for-Frontend** architecture.
+- The **Frontend** (React) never sees the API key. It sends requests to the Backend via an Nginx proxy (`/api/...`).
+- The **Backend** (Node.js) holds the API key in a secure environment variable injected by Kubernetes Secrets.
+- The **API Key** is stored in Kubernetes `etcd` (encrypted) and is never committed to the repository.

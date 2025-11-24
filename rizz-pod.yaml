@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: rizz-ai
+ labels:
+  name: rizz-ai
+  app: rizz-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rizz-app
+  template:
+    metadata:
+      labels:
+        app: rizz-app
+    spec:
+      containers:
+      - name: rizz-app
+        image: rizz-ai:latest
+        imagePullPolicy: Never
+       
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: rizz-service
+  labels:
+    name: rizz-service
+    app: rizz-app
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: rizz-app

@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rizz-backend
+  labels:
+    app: rizz-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rizz-backend
+  template:
+    metadata:
+      labels:
+        app: rizz-backend
+    spec:
+      containers:
+      - name: rizz-backend
+        image: rizz-backend:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3000
+        env:
+        - name: GEN_AI_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rizz-secret
+              key: api-key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rizz-backend-service
+spec:
+  selector:
+    app: rizz-backend
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
