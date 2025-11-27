@@ -67,3 +67,8 @@ jobs:
         # Apply manifests
         kubectl apply -f rizz-pod.yaml
         kubectl apply -f backend-deployment.yaml
+        
+        # Wait for LoadBalancer and print URL
+        echo "Waiting for LoadBalancer IP..."
+        sleep 60
+        kubectl get svc rizz-service
