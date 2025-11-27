@@ -1,0 +1,69 @@
+name: Deploy to EKS
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY_APP: rizz-app
+  ECR_REPOSITORY_BACKEND: rizz-backend
+  EKS_CLUSTER_NAME: rizz-cluster
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, tag, and push App image to Amazon ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build App
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_APP:$IMAGE_TAG ./rizz-app
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_APP:$IMAGE_TAG
+        
+        # Build Backend
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG ./backend
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG
+
+    - name: Update kubeconfig
+      run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+    - name: Deploy to EKS
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+        GEN_AI_KEY: ${{ secrets.GEN_AI_KEY }}
+      run: |
+        # Create/Update Secret
+        kubectl create secret generic rizz-secret --from-literal=api-key="$GEN_AI_KEY" --dry-run=client -o yaml | kubectl apply -f -
+
+        # Update image tags in manifests
+        sed -i "s|image: .*rizz-ai:latest|image: $ECR_REGISTRY/$ECR_REPOSITORY_APP:$IMAGE_TAG|g" rizz-pod.yaml
+        sed -i "s|imagePullPolicy: Never|imagePullPolicy: Always|g" rizz-pod.yaml
+        
+        sed -i "s|image: .*rizz-backend:latest|image: $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG|g" backend-deployment.yaml
+        sed -i "s|imagePullPolicy: Never|imagePullPolicy: Always|g" backend-deployment.yaml
+        
+        # Apply manifests
+        kubectl apply -f rizz-pod.yaml
+        kubectl apply -f backend-deployment.yaml
