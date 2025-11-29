@@ -1,6 +1,6 @@
 # Rizz.AI - Your AI Dating Wingman 💘
 
-Rizz.AI is a next-generation dating assistant powered by Google's Gemini AI. It helps you craft the perfect responses, generate pickup lines, and analyze conversation vibes with a premium, "Romantic Minimalist" aesthetic.
+Rizz.AI is a next-generation dating assistant powered by Google's Gemini AI. It helps you craft the perfect responses, generate pickup lines, and analyze conversation vibes with a premium, "Romantic Minimalist" aesthetic. by yash mahakal.
 
 ![Rizz.AI Banner](https://images.unsplash.com/photo-1518621736915-f3b1c41bfd00?q=80&w=3786&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)
 
