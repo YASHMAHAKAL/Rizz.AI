@@ -1,0 +1,116 @@
+name: Rizz.AI verified ECR release
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rizz-publish-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    name: Publish verified release
+    # Operator-controlled opt-in. No AWS credentials or billable publishing by default.
+    if: vars.RIZZ_ECR_PUBLISH_ENABLED == 'true' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RIZZ_AWS_ACCOUNT_ID: ${{ vars.RIZZ_AWS_ACCOUNT_ID }}
+      RIZZ_PUBLISH_ROLE_ARN: ${{ vars.RIZZ_PUBLISH_ROLE_ARN }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            rizz-app/package-lock.json
+      - name: Validate fixed publishing configuration
+        run: |
+          node --input-type=module -e '
+            import assert from "node:assert/strict";
+            assert.match(process.env.RIZZ_AWS_ACCOUNT_ID ?? "", /^[0-9]{12}$/);
+            assert.equal(process.env.RIZZ_PUBLISH_ROLE_ARN, `arn:aws:iam::${process.env.RIZZ_AWS_ACCOUNT_ID}:role/rizz-staging-image-publisher`);
+            assert.equal(process.env.GITHUB_REF, "refs/heads/master");
+          '
+          node --test scripts/create-release.test.mjs
+      - name: Backend tests and dependency gate
+        working-directory: backend
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          npm audit --audit-level=high
+      - name: Frontend tests, build and dependency gate
+        working-directory: rizz-app
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          npm run build
+          npm audit --audit-level=high
+      - name: Build both images and run explicit mock-only integration
+        run: |
+          docker compose -p rizz-release-ci -f compose.local.yaml -f compose.smoke.yaml up --build -d --wait --wait-timeout 60
+          node scripts/smoke.mjs
+      - name: Scan both local images (fail on HIGH or CRITICAL)
+        run: |
+          mkdir -p reports
+          for component in frontend backend; do
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock:ro \
+              -v "$PWD/reports:/reports" \
+              aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 \
+              image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
+              --format json --output "/reports/$component.json" "rizz-$component:phase1-local"
+          done
+      - name: Obtain ECR-only OIDC session
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.RIZZ_PUBLISH_ROLE_ARN }}
+          aws-region: us-east-1
+          allowed-account-ids: ${{ vars.RIZZ_AWS_ACCOUNT_ID }}
+          role-session-name: rizz-publish-${{ github.run_id }}-${{ github.run_attempt }}
+          role-duration-seconds: 900
+          mask-aws-account-id: true
+          unset-current-credentials: true
+          disable-retry: true
+      - name: Push scanned images and create release record
+        env:
+          AWS_MAX_ATTEMPTS: "1"
+          AWS_PAGER: ""
+        run: |
+          registry="$RIZZ_AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com"
+          image_tag="$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "$registry"
+          export FRONTEND_IMAGE_ID="$(docker image inspect rizz-frontend:phase1-local --format '{{.Id}}')"
+          export BACKEND_IMAGE_ID="$(docker image inspect rizz-backend:phase1-local --format '{{.Id}}')"
+          for component in frontend backend; do
+            docker tag "rizz-$component:phase1-local" "$registry/rizz-staging-$component:$image_tag"
+            docker push "$registry/rizz-staging-$component:$image_tag"
+            aws ecr batch-get-image --region us-east-1 --registry-id "$RIZZ_AWS_ACCOUNT_ID" \
+              --repository-name "rizz-staging-$component" --image-ids "imageTag=$image_tag" \
+              --output json > "reports/$component-registry.json"
+          done
+          node scripts/create-release.mjs
+      - name: Upload paired release record
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rizz-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release.json
+          if-no-files-found: error
+          retention-days: 30
+          overwrite: false
+          archive: true
+      - name: Remove only this CI smoke stack
+        if: always()
+        run: docker compose -p rizz-release-ci -f compose.local.yaml -f compose.smoke.yaml down

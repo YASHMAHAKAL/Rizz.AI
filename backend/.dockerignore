@@ -1,10 +1,8 @@
 node_modules
-dist
-.git
+coverage
+test
 .env
 .env.*
-test
-coverage
 *.log
+.git
 .local-secrets
-.DS_Store

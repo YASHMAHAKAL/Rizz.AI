@@ -1,0 +1,35 @@
+# Local application only; never deploys to AWS or the existing Kind cluster.
+services:
+  rizz-backend-service:
+    image: rizz-backend:phase1-local
+    build: ./backend
+    init: true
+    read_only: true
+    tmpfs: ['/tmp:noexec,nosuid,size=32m']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 256m
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      GEN_AI_KEY: ${GEN_AI_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      DEMO_USERNAME: ${DEMO_USERNAME:-}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      PROVIDER_TIMEOUT_MS: '25000'
+      MAX_CONCURRENT_REQUESTS: '2'
+      REQUESTS_PER_MINUTE: '10'
+      MAX_PROVIDER_CALLS: '100'
+  frontend:
+    image: rizz-frontend:phase1-local
+    build: ./rizz-app
+    init: true
+    read_only: true
+    tmpfs: ['/tmp:noexec,nosuid,size=32m']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 128m
+    ports: ['127.0.0.1:8088:8080']
+    depends_on:
+      rizz-backend-service:
+        condition: service_healthy

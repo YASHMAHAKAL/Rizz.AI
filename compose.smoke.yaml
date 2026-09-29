@@ -1,0 +1,12 @@
+# Opt-in local fixture only. Fixed test credentials are not real credentials.
+services:
+  rizz-backend-service:
+    command: ['node', '/app/test/mock-server.js']
+    volumes: ['./backend/test/mock-server.js:/app/test/mock-server.js:ro']
+    environment:
+      NODE_ENV: test
+      RIZZ_SMOKE_TEST_ONLY: '1'
+      GEN_AI_KEY: fixture-not-a-real-key
+      GEMINI_MODEL: gemini-test-fixture
+      DEMO_USERNAME: smoke
+      DEMO_PASSWORD: local-smoke-fixture-password

@@ -17,6 +17,7 @@ export function Home() {
     const [selectedVibe, setSelectedVibe] = useState('Funny');
     const [response, setResponse] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
     const [copied, setCopied] = useState(false);
     const [showToast, setShowToast] = useState(false);
     const [showScreenshotModal, setShowScreenshotModal] = useState(false);
@@ -28,10 +29,11 @@ export function Home() {
             return;
         }
 
-        if (!target.trim()) return;
+        if (!target.trim() || isLoading) return;
 
         setIsLoading(true);
         setResponse('');
+        setErrorMessage('');
 
         try {
             const prompt = `Write a ${selectedVibe} pickup line for ${target}`;
@@ -40,7 +42,7 @@ export function Home() {
             addToHistory(result);
             decrementCredits();
         } catch (error) {
-            console.error(error);
+            setErrorMessage(error instanceof Error ? error.message : 'The AI request failed.');
         } finally {
             setIsLoading(false);
         }
@@ -54,6 +56,7 @@ export function Home() {
 
     return (
         <div className="space-y-8 max-w-2xl mx-auto relative">
+            {errorMessage && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">{errorMessage}</p>}
             {/* Toast Notification */}
             {showToast && (
                 <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4">
@@ -97,6 +100,7 @@ export function Home() {
                         </div>
                         <input
                             type="text"
+                            maxLength={1000}
                             value={target}
                             onChange={(e) => setTarget(e.target.value)}
                             placeholder="e.g. Crush from Gym, Match on Tinder..."

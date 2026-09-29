@@ -13,27 +13,34 @@ export function ScreenshotModal({ onClose }: ScreenshotModalProps) {
     const { decrementCredits, credits } = useRizz();
     const [isDragging, setIsDragging] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
     const [result, setResult] = useState<{ tone: string; options: string[] } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFile = async (file: File) => {
-        if (credits < 2) return; // Should be handled by UI state, but safety check
+        if (credits < 2 || isScanning) return;
+        setErrorMessage('');
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+            setErrorMessage('Choose a PNG, JPEG or WebP image no larger than 2 MB.');
+            return;
+        }
 
         setIsScanning(true);
-        decrementCredits(2);
 
         const reader = new FileReader();
-        reader.onloadend = async () => {
+        reader.onload = async () => {
             const base64 = reader.result as string;
             try {
                 const analysis = await analyzeScreenshot(base64);
                 setResult(analysis);
+                decrementCredits(2);
             } catch (error) {
-                console.error(error);
+                setErrorMessage(error instanceof Error ? error.message : 'The AI request failed.');
             } finally {
                 setIsScanning(false);
             }
         };
+        reader.onerror = () => { setErrorMessage('Cannot read this image.'); setIsScanning(false); };
         reader.readAsDataURL(file);
     };
 
@@ -48,6 +55,7 @@ export function ScreenshotModal({ onClose }: ScreenshotModalProps) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
             <Card className="w-full max-w-lg bg-white relative overflow-hidden">
+                {errorMessage && <p role="alert" className="rounded-xl bg-red-50 p-3 text-red-700">{errorMessage}</p>}
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-charcoal transition-colors"
@@ -92,7 +100,7 @@ export function ScreenshotModal({ onClose }: ScreenshotModalProps) {
                                     type="file"
                                     ref={fileInputRef}
                                     className="hidden"
-                                    accept="image/*"
+                                    accept="image/png,image/jpeg,image/webp"
                                     onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
                                 />
                                 <div className="flex flex-col items-center gap-3 text-gray-400 group-hover:text-coral transition-colors">

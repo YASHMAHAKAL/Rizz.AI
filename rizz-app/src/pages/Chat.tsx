@@ -9,6 +9,7 @@ export function Chat() {
     const { chatHistory, addChatMessage, decrementCredits, credits } = useRizz();
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Use the default session for now
@@ -23,30 +24,31 @@ export function Chat() {
     }, [currentSession.messages]);
 
     const handleSend = async () => {
-        if (!input.trim() || credits <= 0) return;
+        if (!input.trim() || credits <= 0 || isLoading) return;
 
         const userMsg = input;
         setInput('');
-        addChatMessage(currentSession.id, { role: 'user', text: userMsg });
-        decrementCredits(1);
         setIsLoading(true);
+        setErrorMessage('');
 
         try {
             // Prepare history for API
-            const history = currentSession.messages.map(m => ({
+            const history = currentSession.messages.slice(-8).map(m => ({
                 role: m.role,
-                parts: m.text
+                parts: m.text.slice(0, 1000)
             }));
 
             const { reply, critique } = await generateChatReply(history, userMsg);
-
+            addChatMessage(currentSession.id, { role: 'user', text: userMsg });
+            decrementCredits(1);
             addChatMessage(currentSession.id, {
                 role: 'model',
                 text: reply,
                 critique
             });
         } catch (error) {
-            console.error(error);
+            setErrorMessage(error instanceof Error ? error.message : 'The AI request failed.');
+            setInput(userMsg);
         } finally {
             setIsLoading(false);
         }
@@ -67,6 +69,7 @@ export function Chat() {
 
             {/* Main Chat Area */}
             <Card className="flex-1 flex flex-col h-full p-0 overflow-hidden bg-white/50">
+                {errorMessage && <p role="alert" className="bg-red-50 p-4 text-red-700">{errorMessage}</p>}
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
                     {currentSession.messages.length === 0 && (
@@ -134,6 +137,7 @@ export function Chat() {
                         <input
                             type="text"
                             value={input}
+                            maxLength={2000}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                             placeholder="Type your message..."
