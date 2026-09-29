@@ -1,0 +1,188 @@
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: rizz-ai
+  title: Rizz.AI
+  description: Gemini-powered conversation coaching application; cloud delivery under development.
+  annotations:
+    backstage.io/source-location: url:https://github.com/YASHMAHAKAL/Rizz.AI/tree/master/
+    backstage.io/techdocs-ref: dir:.
+  links:
+    - url: http://localhost:3000/rizz-releases
+      title: Read-only release browser (local portal)
+      icon: dashboard
+spec:
+  owner: group:default/rizz-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: rizz-frontend
+  title: Rizz.AI frontend
+  description: React application served by nginx; same-origin proxy to the private backend.
+  tags: [react, nginx, rizz-ai]
+  annotations:
+    backstage.io/source-location: url:https://github.com/YASHMAHAKAL/Rizz.AI/tree/master/rizz-app/
+    github.com/project-slug: YASHMAHAKAL/Rizz.AI
+spec:
+  type: website
+  lifecycle: experimental
+  owner: group:default/rizz-team
+  system: rizz-ai
+  consumesApis: [rizz-api]
+  dependsOn:
+    - component:default/rizz-backend
+    - resource:default/rizz-staging-namespace
+    - resource:default/rizz-ecr-registry
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: rizz-backend
+  title: Rizz.AI backend
+  description: Private Express API using server-side Gemini credentials.
+  tags: [nodejs, gemini, rizz-ai]
+  annotations:
+    backstage.io/source-location: url:https://github.com/YASHMAHAKAL/Rizz.AI/tree/master/backend/
+    github.com/project-slug: YASHMAHAKAL/Rizz.AI
+spec:
+  type: service
+  lifecycle: experimental
+  owner: group:default/rizz-team
+  system: rizz-ai
+  providesApis: [rizz-api]
+  dependsOn:
+    - resource:default/rizz-staging-namespace
+    - resource:default/rizz-ecr-registry
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: rizz-api
+  title: Rizz.AI API
+  description: Authenticated generation, chat coaching and screenshot analysis contracts.
+spec:
+  type: openapi
+  lifecycle: experimental
+  owner: group:default/rizz-team
+  system: rizz-ai
+  # Inline definition supports both unpublished local file ingestion and GitHub.
+  definition: |
+    openapi: 3.0.3
+    info:
+      title: Rizz.AI API
+      version: 1.0.0
+    servers:
+      - url: /api
+    security:
+      - demoBasic: []
+    paths:
+      /rizz:
+        post:
+          operationId: generateRizz
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  additionalProperties: false
+                  required: [prompt]
+                  properties:
+                    prompt: {type: string, minLength: 1, maxLength: 2000}
+          responses:
+            '200':
+              description: Genuine provider response
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    required: [text]
+                    properties:
+                      text: {type: string}
+            default:
+              $ref: '#/components/responses/Failure'
+      /chat:
+        post:
+          operationId: generateChatReply
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  additionalProperties: false
+                  required: [history, userMessage]
+                  properties:
+                    userMessage: {type: string, minLength: 1, maxLength: 2000}
+                    history:
+                      type: array
+                      maxItems: 10
+                      description: Completed user/model pairs; alternating from user; at most 10000 combined text characters.
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required: [role, parts]
+                        properties:
+                          role: {type: string, enum: [user, model]}
+                          parts: {type: string, minLength: 1, maxLength: 2000}
+          responses:
+            '200':
+              description: Reply and constructive critique
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    required: [reply, critique]
+                    properties:
+                      reply: {type: string}
+                      critique: {type: string}
+            default:
+              $ref: '#/components/responses/Failure'
+      /analyze:
+        post:
+          operationId: analyzeScreenshot
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  additionalProperties: false
+                  required: [imageBase64]
+                  properties:
+                    imageBase64:
+                      type: string
+                      description: PNG, JPEG or WebP base64 data URI; decoded image at most 2 MiB with validated signature.
+                      maxLength: 2800030
+          responses:
+            '200':
+              description: Tone and three reply options
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    required: [tone, options]
+                    properties:
+                      tone: {type: string}
+                      options:
+                        type: array
+                        minItems: 3
+                        maxItems: 3
+                        items: {type: string}
+            default:
+              $ref: '#/components/responses/Failure'
+    components:
+      securitySchemes:
+        demoBasic: {type: http, scheme: basic}
+      responses:
+        Failure:
+          description: Sanitized failure (400, 401, 413, 415, 429, 502, 503 or 504); no successful fallback.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, requestId]
+                properties:
+                  error: {type: string}
+                  requestId: {type: string, format: uuid}

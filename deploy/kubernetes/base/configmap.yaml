@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rizz-runtime
+data:
+  NODE_ENV: production
+  PORT: '3000'
+  GEMINI_MODEL: gemini-3.1-flash-lite
+  PROVIDER_TIMEOUT_MS: '25000'
+  MAX_CONCURRENT_REQUESTS: '2'
+  REQUESTS_PER_MINUTE: '10'
+  MAX_PROVIDER_CALLS: '100'

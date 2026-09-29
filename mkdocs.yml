@@ -1,0 +1,12 @@
+site_name: Rizz.AI platform runbook
+nav:
+  - Overview: index.md
+  - Local readiness: platform-phase-1.md
+  - Release contract: release-contract.md
+  - Release publishing: release-publishing.md
+  - Deploy and rollback: deploy-rollback.md
+  - Gemini outage and failed rollout: incidents.md
+  - Secrets and access: secrets-access.md
+  - Retirement and teardown: retirement.md
+plugins:
+  - techdocs-core

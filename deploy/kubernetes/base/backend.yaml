@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rizz-backend
+  labels:
+    app.kubernetes.io/name: rizz-backend
+    app.kubernetes.io/part-of: rizz-ai
+    backstage.io/kubernetes-id: rizz-backend
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  progressDeadlineSeconds: 120
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rizz-backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rizz-backend
+        app.kubernetes.io/part-of: rizz-ai
+        backstage.io/kubernetes-id: rizz-backend
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 40
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: backend
+          # Rendering-only placeholder. Release workflow MUST replace with verified ECR digest.
+          image: rizz-backend:release-required
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: rizz-runtime
+          env:
+            - name: GEN_AI_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rizz-runtime-secrets
+                  key: gen-ai-key
+            - name: DEMO_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: rizz-runtime-secrets
+                  key: demo-username
+            - name: DEMO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rizz-runtime-secrets
+                  key: demo-password
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+          volumeMounts:
+            - name: temporary
+              mountPath: /tmp
+      volumes:
+        - name: temporary
+          emptyDir:
+            sizeLimit: 32Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rizz-backend-service
+  labels:
+    backstage.io/kubernetes-id: rizz-backend
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: rizz-backend
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

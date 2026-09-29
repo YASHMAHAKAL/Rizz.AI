@@ -1,5 +1,7 @@
 # Rizz.AI - Your AI Dating Wingman 💘
 
+> Platform extension: use [local readiness](docs/platform-phase-1.md) and the [release contract](docs/release-contract.md) for the current workflow. CI now builds/tests/scans only; it does not apply Terraform or deploy to EKS. The Kubernetes installation instructions below are legacy examples, not the governed cloud release path. EKS delivery is not implemented yet.
+
 Rizz.AI is a next-generation dating assistant powered by Google's Gemini AI. It helps you craft the perfect responses, generate pickup lines, and analyze conversation vibes with a premium, "Romantic Minimalist" aesthetic. by yash mahakal.
 
 ![Rizz.AI Banner](https://images.unsplash.com/photo-1518621736915-f3b1c41bfd00?q=80&w=3786&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)

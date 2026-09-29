@@ -25,6 +25,10 @@ dist
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*
+!.env.example
+!**/.env.example
+.local-secrets/
 .agent
 
 # Editor directories and files
@@ -41,3 +45,6 @@ dist
 *.tfstate
 *.tfstate.backup
 .terraform.lock.h
+# Generated CI release evidence, never source or credentials.
+/release.json
+/reports/
