@@ -23,6 +23,7 @@ RUN npm run build
 # Step 2: Serve the application
 # We use Nginx, a high-performance web server, to serve the static files.
 FROM nginx:stable-alpine@sha256:985220252f3863977e468f611ef118ebd01421289dd86ee1ae99cb068c3bce2b
+RUN apk upgrade --no-cache
 
 # Copy the built files from the 'builder' stage to Nginx's default html directory
 COPY --from=builder /app/dist /usr/share/nginx/html
